@@ -397,7 +397,7 @@ test("invokeHarness sends an InvokeHarnessCommand on the data client with the ab
   // A fake data client that records what send() receives and resolves a canned
   // response, so we can assert the harness sub-client's SDK translation.
   const sent: { command: unknown; options: unknown }[] = [];
-  const configs: DataClientConfig[] = [];
+  const configs: ClientConfig[] = [];
   const response = { stream: undefined };
   const core = new CoreClient({
     createControlClient: fakeControl,
@@ -495,19 +495,22 @@ test("invokeHarness uses an uncached bearer client and destroys it after streami
     harnessArn: "arn:aws:bedrock-agentcore:us-east-1:123456789012:harness/h-1",
     runtimeSessionId: "s".repeat(40),
     messages: [{ role: "user" as const, content: [{ text: "hi" }] }],
-    bearerToken: "secret-token",
   };
 
-  for (let invocation = 0; invocation < 2; invocation++) {
-    const response = await core.harness.invokeHarness(request, { region: "us-east-1" });
+  let eventCount = 0;
+  for (const bearerToken of ["first-token", "second-token"]) {
+    const response = await core.harness.invokeHarness(
+      { ...request, bearerToken },
+      { region: "us-east-1" },
+    );
     for await (const _event of response.stream ?? []) {
-      // Consume the stream so the per-invocation client can be released.
+      eventCount++;
     }
   }
 
   expect(configs).toEqual([
-    { region: "us-east-1", bearerToken: "secret-token" },
-    { region: "us-east-1", bearerToken: "secret-token" },
+    { region: "us-east-1", bearerToken: "first-token" },
+    { region: "us-east-1", bearerToken: "second-token" },
   ]);
   expect(commands).toHaveLength(2);
   for (const command of commands) {
@@ -518,6 +521,24 @@ test("invokeHarness uses an uncached bearer client and destroys it after streami
     });
   }
   expect(destroyed).toBe(2);
+  expect(eventCount).toBe(2);
+});
+
+test("invokeHarness rejects an insecure bearer endpoint", async () => {
+  const core = coreWithDataSend(async () => {
+    throw new Error("request must not be sent");
+  });
+  await expect(
+    core.harness.invokeHarness(
+      {
+        harnessArn: "arn:aws:bedrock-agentcore:us-east-1:123456789012:harness/h-1",
+        runtimeSessionId: "s".repeat(40),
+        messages: [],
+        bearerToken: "secret-token",
+      },
+      { region: "us-east-1", endpointUrl: "http://example.com" },
+    ),
+  ).rejects.toThrow("CUSTOM_JWT requires an HTTPS endpoint");
 });
 
 test("invokeAgentRuntimeCommand sends the command on the data client with the abort signal", async () => {

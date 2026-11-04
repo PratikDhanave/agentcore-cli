@@ -26,7 +26,10 @@ export async function resolveHarnessInvokeBearerToken(
     const value = await new SourceResolver({ stdin }).resolveText("bearer-token", source);
     if (value === undefined) return undefined;
     const normalized = value.replace(/\r?\n$/, "");
-    if (normalized.includes("\n")) {
+    if (normalized.length === 0) {
+      throw new InputValidationError("--bearer-token must not be empty");
+    }
+    if (/[\r\n]/.test(normalized)) {
       throw new InputValidationError("--bearer-token must be a single-line value");
     }
     return normalized;

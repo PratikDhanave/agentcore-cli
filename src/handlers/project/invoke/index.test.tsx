@@ -274,6 +274,13 @@ describe("invoke", () => {
     );
   });
 
+  test("routes a harness ARN into the interactive Harness screen by ID", async () => {
+    const subject = await launches(["--harness", arn(`harness/${HARNESS_ID}`)], undefined);
+    expect(subject.launches).toEqual([
+      { path: `/agentcore/harness/invoke/${HARNESS_ID}`, region: TARGET.region },
+    ]);
+  });
+
   test.each([
     {
       name: "more than one resource flag",

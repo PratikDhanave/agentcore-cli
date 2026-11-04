@@ -211,6 +211,11 @@ export class HarnessClient implements CoreHarnessClient {
     abortSignal?: AbortSignal,
   ): Promise<InvokeHarnessResponse> {
     const { bearerToken, ...sdkRequest } = request;
+    if (bearerToken !== undefined && options.endpointUrl) {
+      if (new URL(options.endpointUrl).protocol !== "https:") {
+        throw new InputValidationError("CUSTOM_JWT requires an HTTPS endpoint");
+      }
+    }
     const client = this.clients.data({ ...toClientConfig(options), bearerToken });
     let response: InvokeHarnessResponse;
     try {

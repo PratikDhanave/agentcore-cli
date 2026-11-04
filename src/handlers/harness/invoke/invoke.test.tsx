@@ -17,6 +17,7 @@ import {
 } from "../../../testing";
 import { InputValidationError } from "../../../errors";
 import * as tui from "../../../tui";
+import { RegionKey } from "../../keys";
 import { HarnessInvokeLaunchContextKey } from "./launchContext";
 
 // Command-flow tests for `harness invoke`, driven through the real root handler
@@ -151,10 +152,49 @@ describe("harness invoke", () => {
     );
   });
 
+  test("uses the ARN region when directly invoking a harness", async () => {
+    const crossRegionArn = ARN.replace(":us-west-2:", ":eu-west-1:");
+    const { core } = await run(["harness", "invoke", "--id", crossRegionArn, "--prompt", "hi"]);
+
+    expect(core.harness.calls.some((call) => call.method === "getHarness")).toBe(false);
+    const invoke = core.harness.calls.find((call) => call.method === "invokeHarness")!;
+    expect(invoke.args[0]).toEqual(expect.objectContaining({ harnessArn: crossRegionArn }));
+    expect(invoke.args[1]).toEqual({ region: "eu-west-1" });
+  });
+
+  test("routes a full harness ARN into the TUI using its ID and region", async () => {
+    const crossRegionArn = ARN.replace(":us-west-2:", ":eu-west-1:");
+    const render = spyOn(tui, "renderTuiAt").mockResolvedValue(undefined);
+    try {
+      await run(["harness", "invoke", "--id", crossRegionArn]);
+
+      expect(render.mock.calls[0]![0]).toBe("/agentcore/harness/invoke/MyHarness-abc123");
+      expect(render.mock.calls[0]![1].value(HarnessInvokeLaunchContextKey)?.harnessId).toBe(
+        "MyHarness-abc123",
+      );
+      expect(render.mock.calls[0]![1].value(RegionKey)).toBe("eu-west-1");
+    } finally {
+      render.mockRestore();
+    }
+  });
+
   test("--bearer-token requires a one-shot prompt", async () => {
     await expect(
       run(["harness", "invoke", "--id", ARN, "--bearer-token", "secret-token"]),
     ).rejects.toThrow("--prompt");
+  });
+
+  test.each([
+    { token: "", error: "must not be empty" },
+    { token: "first\rsecond", error: "must be a single-line value" },
+  ])("rejects malformed bearer tokens", async ({ token, error }) => {
+    await expect(
+      run(
+        ["harness", "invoke", "--id", ARN, "--prompt", "hi", "--bearer-token", "-"],
+        undefined,
+        testIO({ stdin: token }),
+      ),
+    ).rejects.toThrow(error);
   });
 
   test("--session-id is passed through and echoed in the output", async () => {

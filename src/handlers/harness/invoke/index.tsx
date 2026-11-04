@@ -1,9 +1,10 @@
 import z from "zod";
 import { createHandler, flag, PathKey } from "../../../router";
 import type { AppIO } from "../../../io";
+import { regionFromArn, serviceIdFromArn } from "../../../core/arn";
 import type { Core } from "../../types.tsx";
 import { coreOptsFromCtx } from "../../utils.tsx";
-import { JsonKey } from "../../keys.tsx";
+import { JsonKey, RegionKey } from "../../keys.tsx";
 import { JsonRendererKey, renderTuiAt } from "../../../tui";
 import { runWithProgress } from "../../../tui/progress";
 import { InputValidationError } from "../../../errors";
@@ -53,22 +54,28 @@ export const createInvokeHarnessHandler = (core: Core, io: AppIO) =>
         if (ctx.require(JsonKey)) {
           throw new InputValidationError("required option '--prompt <text>' not specified");
         }
-        let path = `${ctx.require(PathKey)}/${flags["id"]}`;
+        const harnessId = serviceIdFromArn(flags["id"]);
+        let path = `${ctx.require(PathKey)}/${encodeURIComponent(harnessId)}`;
         if (flags["session-id"]) path += `/${flags["session-id"]}`;
         if (flags["qualifier"]) path += `?qualifier=${encodeURIComponent(flags["qualifier"])}`;
         await renderTuiAt(
           path,
-          ctx.withValue(HarnessInvokeLaunchContextKey, {
-            harnessId: flags["id"],
-            userId: flags["user-id"],
-          }),
+          ctx
+            .withValue(HarnessInvokeLaunchContextKey, {
+              harnessId,
+              userId: flags["user-id"],
+            })
+            .withValue(RegionKey, regionFromArn(flags["id"]) ?? ctx.require(RegionKey)),
           core,
           io,
         );
         return;
       }
 
-      const opts = coreOptsFromCtx(ctx);
+      const opts = {
+        ...coreOptsFromCtx(ctx),
+        region: regionFromArn(flags["id"]) ?? ctx.require(RegionKey),
+      };
       const prompt = flags["prompt"];
       const bearerToken = await resolveHarnessInvokeBearerToken(flags["bearer-token"], io.stdin);
       const invoke = () =>

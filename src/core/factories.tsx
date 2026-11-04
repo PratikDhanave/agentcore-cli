@@ -7,6 +7,7 @@ import { XRayClient } from "@aws-sdk/client-xray";
 import { ApplicationSignalsClient } from "@aws-sdk/client-application-signals";
 import { HttpBearerAuthSigner } from "@smithy/core";
 import type { TokenIdentity } from "@smithy/types";
+import { InputValidationError } from "../errors";
 import type {
   CreateApplicationSignalsClient,
   CreateCloudFormationClient,
@@ -27,8 +28,15 @@ export const createControlClient: CreateControlClient = (config) =>
 
 const HTTP_BEARER_AUTH_SCHEME = "smithy.api#httpBearerAuth";
 
-export const createDataClient: CreateDataClient = ({ bearerToken, ...config }) =>
-  new BedrockAgentCoreClient(
+export const createDataClient: CreateDataClient = ({ bearerToken, ...config }) => {
+  if (
+    bearerToken !== undefined &&
+    config.endpoint !== undefined &&
+    new URL(config.endpoint).protocol !== "https:"
+  ) {
+    throw new InputValidationError("CUSTOM_JWT requires an HTTPS endpoint");
+  }
+  return new BedrockAgentCoreClient(
     bearerToken === undefined
       ? config
       : {
@@ -45,6 +53,7 @@ export const createDataClient: CreateDataClient = ({ bearerToken, ...config }) =
           ],
         },
   );
+};
 
 export const createIamClient: CreateIamClient = (config) => new IAMClient({ ...config });
 

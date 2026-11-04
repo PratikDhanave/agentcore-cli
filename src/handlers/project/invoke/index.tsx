@@ -15,6 +15,7 @@ import { attributeName, parseFlags } from "../../../router/flags";
 import { renderTuiAt } from "../../../tui";
 import { createInvokeGatewayHandler, invokeGatewayFlags } from "../../gateway/invoke";
 import { createInvokeHarnessHandler, invokeHarnessFlags } from "../../harness/invoke";
+import { isHarnessArn } from "../../harness/invoke/request";
 import { AwsCredentialProviderKey, JsonKey, RegionKey } from "../../keys";
 import type { Core } from "../../types";
 import { assertMutuallyExclusiveFlags, resolveResource } from "../../utils";
@@ -171,7 +172,7 @@ export function createProjectInvokeHandler(core: Core, io: AppIO) {
       );
       const rawHandlerFlags: Record<string, unknown> = {
         ...flags,
-        id: resourceType === "harness" ? (resource.arn ?? resource.id) : resource.id,
+        id: resourceType === "harness" && isHarnessArn(identifier) ? identifier : resource.id,
       };
       const parsedHandlerFlags = parseFlags(
         handler.flags(),

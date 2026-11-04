@@ -185,11 +185,7 @@ describe("resolveResource", () => {
     [
       "an ARN in its own region",
       "arn:aws:bedrock-agentcore:ap-south-1:111122223333:gateway/gw-1",
-      {
-        id: "gw-1",
-        arn: "arn:aws:bedrock-agentcore:ap-south-1:111122223333:gateway/gw-1",
-        region: "ap-south-1",
-      },
+      { id: "gw-1", region: "ap-south-1" },
     ],
   ])("resolves %s without any lookup", async (_name, identifier, expected) => {
     const { core, ctx, lookups } = setup();

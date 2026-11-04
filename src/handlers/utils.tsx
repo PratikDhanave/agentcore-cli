@@ -3,7 +3,7 @@ import { ProjectKey, flag, type Context } from "../router";
 import { z } from "zod";
 import type { AwsCredentialProvider, CoreOptions } from "../core/types";
 import type { AppIO } from "../io";
-import { parseArn, regionFromArn, serviceIdFromArn } from "../core/arn";
+import { regionFromArn, serviceIdFromArn } from "../core/arn";
 import { AgentCoreCLIError, InputValidationError, SilentCLIError } from "../errors";
 import { formatZodError } from "../router/schema";
 import { TagsSchema, type Tags } from "../projectSchemas/tags";
@@ -29,7 +29,6 @@ export function coreOptsFromCtx(ctx: Context): CoreOptions {
 
 export type ResolvedResource = {
   id: string;
-  arn?: string;
   region: string;
   credentials?: AwsCredentialProvider;
 };
@@ -56,7 +55,6 @@ export async function resolveResource(
   }
   return {
     id: serviceIdFromArn(identifier),
-    ...(parseArn(identifier) !== undefined && { arn: identifier }),
     region: regionFromArn(identifier) ?? ctx.require(RegionKey),
   };
 }
