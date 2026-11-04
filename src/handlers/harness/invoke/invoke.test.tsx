@@ -24,7 +24,7 @@ import { HarnessInvokeLaunchContextKey } from "./launchContext";
 // TestCoreClient rather than recorded fixtures: the invoke response is an
 // AsyncIterable stream, which the fixture serialization cannot capture.
 
-const ARN = "arn:aws:bedrock-agentcore:us-west-2:123:harness/MyHarness-abc123";
+const ARN = "arn:aws:bedrock-agentcore:us-west-2:123456789012:harness/MyHarness-abc123";
 
 const GET_RESPONSE = {
   harness: { harnessId: "MyHarness-abc123", harnessName: "MyHarness", arn: ARN },
@@ -132,6 +132,29 @@ describe("harness invoke", () => {
     expect(request.runtimeSessionId!.length).toBeGreaterThanOrEqual(33);
     expect(request.runtimeSessionId!.length).toBeLessThanOrEqual(100);
     expect((invoke.args[1] as { region: string }).region).toBe("us-west-2");
+  });
+
+  test("invokes a full harness ARN with a bearer token without a control-plane lookup", async () => {
+    const { core } = await run(
+      ["harness", "invoke", "--id", ARN, "--prompt", "hi", "--bearer-token", "-"],
+      undefined,
+      testIO({ stdin: "secret-token\n" }),
+    );
+
+    expect(core.harness.calls.some((call) => call.method === "getHarness")).toBe(false);
+    const invoke = core.harness.calls.find((call) => call.method === "invokeHarness")!;
+    expect(invoke.args[0]).toEqual(
+      expect.objectContaining({
+        harnessArn: ARN,
+        bearerToken: "secret-token",
+      }),
+    );
+  });
+
+  test("--bearer-token requires a one-shot prompt", async () => {
+    await expect(
+      run(["harness", "invoke", "--id", ARN, "--bearer-token", "secret-token"]),
+    ).rejects.toThrow("--prompt");
   });
 
   test("--session-id is passed through and echoed in the output", async () => {

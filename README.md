@@ -50,6 +50,18 @@ agentcore deploy
 agentcore invoke --harness MyAssistant --prompt "Hey, what can you do for me?"
 ```
 
+To invoke a CUSTOM_JWT Harness without AWS credentials, pass its full ARN and pipe a bearer token:
+
+```bash
+printf '%s' "$JWT" | agentcore invoke \
+  --harness arn:aws:bedrock-agentcore:us-east-1:123456789012:harness/MyAssistant-AbCdEf1234 \
+  --region us-east-1 --bearer-token - --prompt "Hello"
+```
+
+The same flags work with `agentcore harness invoke --id <harness-arn>`. A bare Harness ID
+still needs AWS credentials to look up its ARN. `--bearer-token file://<path>` reads a token
+from a file.
+
 To start from code you own instead, pick a template (`agentcore create --help` lists them):
 
 ```bash

@@ -169,7 +169,10 @@ export function createProjectInvokeHandler(core: Core, io: AppIO) {
         identifier,
         flags.target ?? DEFAULT_TARGET_NAME,
       );
-      const rawHandlerFlags: Record<string, unknown> = { ...flags, id: resource.id };
+      const rawHandlerFlags: Record<string, unknown> = {
+        ...flags,
+        id: resourceType === "harness" ? (resource.arn ?? resource.id) : resource.id,
+      };
       const parsedHandlerFlags = parseFlags(
         handler.flags(),
         Object.fromEntries(

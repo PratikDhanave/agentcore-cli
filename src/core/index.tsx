@@ -19,6 +19,7 @@ import type {
   AwsClients,
   AwsCredentials,
   ClientConfig,
+  DataClientConfig,
   CoreFetch,
   CreateApplicationSignalsClient,
   CreateCloudFormationClient,
@@ -38,6 +39,7 @@ import type { ProjectMigrator } from "../handlers/project/migrate/types";
 export type {
   AwsClients,
   ClientConfig,
+  DataClientConfig,
   CoreFetch,
   CreateApplicationSignalsClient,
   CreateControlClient,
@@ -167,7 +169,8 @@ export class CoreClient implements AwsClients {
 
   // data returns the data-plane client for `config`, creating and caching it on
   // first use.
-  data(config: ClientConfig): BedrockAgentCoreClient {
+  data(config: DataClientConfig): BedrockAgentCoreClient {
+    if (config.bearerToken !== undefined) return this.createDataClient(config);
     return this.dataClients.get(config, this.createDataClient);
   }
 

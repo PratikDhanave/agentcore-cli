@@ -39,6 +39,10 @@ export interface ClientConfig {
   credentials?: AwsCredentials;
 }
 
+export type DataClientConfig = ClientConfig & {
+  bearerToken?: string;
+};
+
 export type CredentialedClientConfig = {
   region: string;
   credentials: AwsCredentials;
@@ -48,7 +52,7 @@ export type CredentialedClientConfig = {
 // than the clients themselves) lets CoreClient create/cache one client per config
 // while keeping construction swappable for unit tests.
 export type CreateControlClient = (config: ClientConfig) => BedrockAgentCoreControlClient;
-export type CreateDataClient = (config: ClientConfig) => BedrockAgentCoreClient;
+export type CreateDataClient = (config: DataClientConfig) => BedrockAgentCoreClient;
 export type CreateIamClient = (config: ClientConfig) => IAMClient;
 export type CreateLogsClient = (config: ClientConfig) => CloudWatchLogsClient;
 export type CreateXrayClient = (config: ClientConfig) => XRayClient;
@@ -65,7 +69,7 @@ export type CoreFetch = (
 // endpoint, ...).
 export interface AwsClients {
   control(config: ClientConfig): BedrockAgentCoreControlClient;
-  data(config: ClientConfig): BedrockAgentCoreClient;
+  data(config: DataClientConfig): BedrockAgentCoreClient;
   iam(config: ClientConfig): IAMClient;
   // logs reads the CloudWatch Logs streams AgentCore writes batch-evaluation
   // results to. CloudWatch is a distinct service from the AgentCore data plane,

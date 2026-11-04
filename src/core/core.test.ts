@@ -23,7 +23,7 @@ import {
 import type { RuntimeInvokeRequest } from "../handlers/runtime/types";
 import type { Logger, LoggerBindings } from "../logging";
 import { CoreClient } from "./index";
-import type { ClientConfig, CoreFetch } from "./types";
+import type { ClientConfig, CoreFetch, DataClientConfig } from "./types";
 import { toClientConfig } from "./utils";
 import { createSilentLogger } from "../testing";
 
@@ -397,7 +397,7 @@ test("invokeHarness sends an InvokeHarnessCommand on the data client with the ab
   // A fake data client that records what send() receives and resolves a canned
   // response, so we can assert the harness sub-client's SDK translation.
   const sent: { command: unknown; options: unknown }[] = [];
-  const configs: ClientConfig[] = [];
+  const configs: DataClientConfig[] = [];
   const response = { stream: undefined };
   const core = new CoreClient({
     createControlClient: fakeControl,
@@ -463,6 +463,61 @@ test("invokeHarness stream iteration rejects promptly when aborted mid-stream", 
   const pending = iterator.next();
   controller.abort();
   expect(pending).rejects.toMatchObject({ name: "AbortError" });
+});
+
+test("invokeHarness uses an uncached bearer client and destroys it after streaming", async () => {
+  const configs: DataClientConfig[] = [];
+  const commands: InvokeHarnessCommand[] = [];
+  let destroyed = 0;
+  const core = new CoreClient({
+    createControlClient: fakeControl,
+    createDataClient: (config) => {
+      configs.push(config);
+      return {
+        send: async (command: InvokeHarnessCommand) => {
+          commands.push(command);
+          return {
+            stream: (async function* () {
+              yield { messageStop: { stopReason: "end_turn" } };
+            })(),
+          };
+        },
+        destroy: () => destroyed++,
+      } as unknown as BedrockAgentCoreClient;
+    },
+    createIamClient: fakeIam,
+    createLogsClient: fakeLogs,
+    createXrayClient: fakeXray,
+    createApplicationSignalsClient: fakeApplicationSignals,
+    logger: createSilentLogger(),
+  });
+  const request = {
+    harnessArn: "arn:aws:bedrock-agentcore:us-east-1:123456789012:harness/h-1",
+    runtimeSessionId: "s".repeat(40),
+    messages: [{ role: "user" as const, content: [{ text: "hi" }] }],
+    bearerToken: "secret-token",
+  };
+
+  for (let invocation = 0; invocation < 2; invocation++) {
+    const response = await core.harness.invokeHarness(request, { region: "us-east-1" });
+    for await (const _event of response.stream ?? []) {
+      // Consume the stream so the per-invocation client can be released.
+    }
+  }
+
+  expect(configs).toEqual([
+    { region: "us-east-1", bearerToken: "secret-token" },
+    { region: "us-east-1", bearerToken: "secret-token" },
+  ]);
+  expect(commands).toHaveLength(2);
+  for (const command of commands) {
+    expect(command.input).toEqual({
+      harnessArn: request.harnessArn,
+      runtimeSessionId: request.runtimeSessionId,
+      messages: request.messages,
+    });
+  }
+  expect(destroyed).toBe(2);
 });
 
 test("invokeAgentRuntimeCommand sends the command on the data client with the abort signal", async () => {

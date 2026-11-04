@@ -100,7 +100,6 @@ import type {
   InvokeAgentRuntimeCommandRequest,
   InvokeAgentRuntimeCommandResponse,
   InvokeAgentRuntimeCommandStreamOutput,
-  InvokeHarnessRequest,
   InvokeHarnessResponse,
   InvokeHarnessStreamOutput,
   ListActorsInput,
@@ -121,6 +120,7 @@ import type {
 import type { Core } from "../handlers/types";
 import type {
   CoreHarnessClient,
+  CoreInvokeHarnessRequest,
   CreateHarnessInput,
   ResolvedHarnessRuntime,
   HarnessShellRequest,
@@ -700,7 +700,7 @@ export class TestHarnessClient implements CoreHarnessClient {
   }
 
   async invokeHarness(
-    request: InvokeHarnessRequest,
+    request: CoreInvokeHarnessRequest,
     options: CoreOptions,
     abortSignal?: AbortSignal,
   ): Promise<InvokeHarnessResponse> {

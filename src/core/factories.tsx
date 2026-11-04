@@ -5,6 +5,8 @@ import { CloudWatchLogsClient } from "@aws-sdk/client-cloudwatch-logs";
 import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
 import { XRayClient } from "@aws-sdk/client-xray";
 import { ApplicationSignalsClient } from "@aws-sdk/client-application-signals";
+import { HttpBearerAuthSigner } from "@smithy/core";
+import type { TokenIdentity } from "@smithy/types";
 import type {
   CreateApplicationSignalsClient,
   CreateCloudFormationClient,
@@ -23,8 +25,26 @@ import type {
 export const createControlClient: CreateControlClient = (config) =>
   new BedrockAgentCoreControlClient({ ...config });
 
-export const createDataClient: CreateDataClient = (config) =>
-  new BedrockAgentCoreClient({ ...config });
+const HTTP_BEARER_AUTH_SCHEME = "smithy.api#httpBearerAuth";
+
+export const createDataClient: CreateDataClient = ({ bearerToken, ...config }) =>
+  new BedrockAgentCoreClient(
+    bearerToken === undefined
+      ? config
+      : {
+          ...config,
+          httpAuthSchemeProvider: () => [{ schemeId: HTTP_BEARER_AUTH_SCHEME }],
+          httpAuthSchemes: [
+            {
+              schemeId: HTTP_BEARER_AUTH_SCHEME,
+              identityProvider: () => async (): Promise<TokenIdentity> => ({
+                token: bearerToken,
+              }),
+              signer: new HttpBearerAuthSigner(),
+            },
+          ],
+        },
+  );
 
 export const createIamClient: CreateIamClient = (config) => new IAMClient({ ...config });
 

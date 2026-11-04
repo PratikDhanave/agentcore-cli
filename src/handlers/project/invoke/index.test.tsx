@@ -257,6 +257,23 @@ describe("invoke", () => {
     expect(resolved.targets).toEqual(["default"]);
   });
 
+  test("preserves a harness ARN for credential-free bearer invocation", async () => {
+    const harnessArn = arn(`harness/${HARNESS_ID}`);
+    const { core } = await run(
+      ["--harness", harnessArn, "--prompt", "hi", "--bearer-token", "secret-token"],
+      undefined,
+    );
+
+    expect(core.harness.calls.some((call) => call.method === "getHarness")).toBe(false);
+    const invoke = core.harness.calls.find((call) => call.method === "invokeHarness")!;
+    expect(invoke.args[0]).toEqual(
+      expect.objectContaining({
+        harnessArn,
+        bearerToken: "secret-token",
+      }),
+    );
+  });
+
   test.each([
     {
       name: "more than one resource flag",

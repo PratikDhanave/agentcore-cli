@@ -9,9 +9,10 @@ import { runWithProgress } from "../../../tui/progress";
 import { InputValidationError } from "../../../errors";
 import { invokeHarnessTurn } from "./operation.ts";
 import { HarnessInvokeLaunchContextKey } from "./launchContext";
+import { harnessInvokeTargetSchema, resolveHarnessInvokeBearerToken } from "./request";
 
 export const invokeHarnessFlags = [
-  flag("id", "the ID of the harness", z.string().min(1).max(51)),
+  flag("id", "the ID or ARN of the harness", harnessInvokeTargetSchema),
   flag("prompt", "the message to send to the harness", z.string().optional()),
   flag(
     "user-id",
@@ -28,6 +29,9 @@ export const invokeHarnessFlags = [
     "the harness endpoint qualifier to invoke (default DEFAULT)",
     z.string().optional(),
   ),
+  flag("bearer-token", "the CUSTOM_JWT bearer token", z.string().optional(), {
+    sensitive: true,
+  }),
 ] as const;
 
 export const createInvokeHarnessHandler = (core: Core, io: AppIO) =>
@@ -41,6 +45,11 @@ export const createInvokeHarnessHandler = (core: Core, io: AppIO) =>
       // one-shot CLI transcript below needs --prompt (and is the only shape
       // JSON mode supports).
       if (!flags["prompt"]) {
+        if (flags["bearer-token"] !== undefined) {
+          throw new InputValidationError(
+            "required option '--prompt <text>' not specified with '--bearer-token'",
+          );
+        }
         if (ctx.require(JsonKey)) {
           throw new InputValidationError("required option '--prompt <text>' not specified");
         }
@@ -61,6 +70,7 @@ export const createInvokeHarnessHandler = (core: Core, io: AppIO) =>
 
       const opts = coreOptsFromCtx(ctx);
       const prompt = flags["prompt"];
+      const bearerToken = await resolveHarnessInvokeBearerToken(flags["bearer-token"], io.stdin);
       const invoke = () =>
         invokeHarnessTurn(
           core.harness,
@@ -70,6 +80,7 @@ export const createInvokeHarnessHandler = (core: Core, io: AppIO) =>
             qualifier: flags["qualifier"] ?? "DEFAULT",
             sessionId: flags["session-id"],
             userId: flags["user-id"],
+            bearerToken,
           },
           opts,
         );
